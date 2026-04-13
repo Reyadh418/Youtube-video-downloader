@@ -10,7 +10,7 @@ You run one command, paste a URL, choose a numbered quality option, and download
 - Audio download options
 - Estimated size shown in the selection menu
 - Retry/cancel prompts when link fetch or download fails
-- Default download folder: `C:\Users\hp\Downloads` (on your machine)
+- Default download folder: `C:\Users\(username)\Downloads` (on your machine)
 
 ## Beginner Guide
 
