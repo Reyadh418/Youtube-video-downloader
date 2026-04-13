@@ -1,155 +1,182 @@
 # Tubermate
 
-Tubermate is a terminal-first YouTube video downloader built with Python.
-It is designed for a simple interactive flow:
+Tubermate is a terminal app that downloads a single YouTube video from a link.
+You run one command, paste a URL, choose a numbered quality option, and download.
 
-1. Run the Tubermate command.
-2. Paste a YouTube video link.
-3. See numbered download options (video qualities and audio-only choices).
-4. Enter a number to start downloading.
-5. If a link or download fails, choose retry or cancel.
+## What It Does
 
-Current scope is intentionally focused on single-video downloads for a fast and reliable v1.
+- Interactive command-line flow, no GUI
+- Numbered quality options: 1080p, 720p, 480p, 360p
+- Audio download options
+- Estimated size shown in the selection menu
+- Retry/cancel prompts when link fetch or download fails
+- Default download folder: `C:\Users\hp\Downloads` (on your machine)
 
-## Why Tubermate
+## Beginner Guide
 
-- Clean terminal experience, no GUI required
-- Interactive numbered menu for quality and format selection
-- Single command launch after installation
-- Clear retry/cancel behavior on failures
-- Built on yt-dlp for robust extraction and downloads
-
-## Planned V1 Feature Set
-
-- Single video download from a YouTube URL
-- Interactive prompt to enter URL
-- Fetch and display available formats in numbered order
-- Include audio-only download options in the same menu
-- Download selected format with progress output
-- Retry or cancel prompt when URL fetch or download fails
-
-## Tech Stack
+### 1. Requirements
 
 - Python 3.10+
-- yt-dlp
-- Optional but recommended: ffmpeg (for best audio handling and some merged formats)
+- pipx (recommended)
+- Optional: ffmpeg for more/high-quality merged formats and MP3 conversion
 
-## Installation
+### 2. Install (Recommended)
 
-Two common install methods are supported.
+From the project root:
 
-### Option A: Install as a global CLI with pipx (recommended)
+```powershell
+python -m pip install --user pipx
+python -m pipx ensurepath
+```
 
-This is the easiest way to get the Tubermate command available in your terminal PATH.
+Close and reopen the terminal, then run:
 
-1. Install pipx (one-time):
+```powershell
+pipx install .
+```
 
-	py -m pip install --user pipx
-	py -m pipx ensurepath
+Start the app:
 
-2. Restart your terminal.
+```powershell
+Tubermate
+```
 
-3. Install Tubermate from the project folder:
+### 3. Use It
 
-	pipx install .
+1. Run `Tubermate`
+2. Paste a YouTube URL
+3. Pick a number from the quality/audio list
+4. Wait for download completion
 
-4. Run:
+Downloads are saved to your Downloads folder by default.
 
-	Tubermate
+### 4. Update After Code Changes
 
-### Option B: Install with pip (also works)
+If you edit source code and want your installed command to use latest changes:
 
-1. From the project folder:
+```powershell
+pipx install --force .
+```
 
-	py -m pip install .
+### 5. Common Fixes
 
-2. Ensure your Python Scripts directory is in PATH.
-3. Run:
+If `Tubermate` command is not recognized:
 
-	Tubermate
+```powershell
+python -m pipx ensurepath
+```
 
-## Usage Flow
+Then restart the terminal.
 
-After installation, run:
+If ffmpeg is missing and you want best quality merges or MP3 conversion:
 
-	Tubermate
+```powershell
+ffmpeg -version
+```
 
-Expected interaction:
+If command not found, install ffmpeg and add it to PATH.
 
-1. App asks for YouTube video URL.
-2. App fetches available formats.
-3. App displays numbered options, for example:
-   - 1) 1080p MP4
-   - 2) 720p MP4
-   - 3) Audio only (best)
-4. You enter the option number.
-5. Download starts.
-6. If failure occurs, app asks:
-   - Retry
-   - Cancel
+## Option List Behavior
 
-## ffmpeg Note
+Tubermate always shows a stable menu layout:
 
-Some download combinations may require ffmpeg.
+1. 1080p (or closest lower)
+2. 720p (or closest lower)
+3. 480p (or closest lower)
+4. 360p (or closest lower)
+5. Best available
+6. Audio only (best original)
+7. Audio only (MP3 192kbps) (only when ffmpeg is available)
 
-Windows quick setup example:
+Notes:
 
-1. Install ffmpeg via package manager (for example winget or chocolatey), or download from the official ffmpeg site.
-2. Add ffmpeg to PATH.
-3. Verify:
+- `or closest lower` means Tubermate falls back automatically if exact quality is unavailable.
+- Size values are estimates (prefixed with `~`).
 
-	ffmpeg -version
+## Tech Deep Dive (For Enthusiasts)
 
-If ffmpeg is not available, basic downloads can still work depending on the selected format.
+### Stack
 
-## Project Status
+- Python packaging via `pyproject.toml`
+- `yt-dlp` for extraction and download execution
+- Console entry point: `Tubermate = tubermate.cli:main`
 
-This repository currently documents and prepares the v1 CLI behavior.
-Implementation will focus first on reliable single-video downloading with interactive quality selection.
+### Current Architecture
 
-## Error Handling Expectations
+```text
+.
+|- pyproject.toml
+|- requirements.txt
+|- src/
+|  |- tubermate/
+|     |- __init__.py
+|     |- cli.py
+|     |- downloader.py
+|- tests/
+   |- test_import.py
+```
 
-- Invalid URL: prompt user to retry or cancel
-- Network issues: prompt user to retry or cancel
-- Unavailable format: return to menu or ask for a new selection
-- Permission/path issues: show clear message and stop gracefully
+### Format Selection Strategy
 
-## Roadmap
+- A fixed, user-friendly option set is rendered for consistency.
+- Internally, each quality option maps to yt-dlp selector expressions.
+- Without ffmpeg: selectors prefer progressive streams with both video+audio.
+- With ffmpeg: selectors can combine separate best video + best audio streams.
+- Audio options:
+  - `bestaudio/best`
+  - MP3 192 kbps post-processing with FFmpeg (if available)
 
-After v1 is stable, possible next steps:
+### Size Estimation Strategy
 
-- Custom output directory selection
-- Default quality preferences
-- Download history log
-- Playlist support (future, not in v1)
+Estimated sizes are computed from metadata in this order:
 
-## Development Setup
+1. `filesize`
+2. `filesize_approx`
+3. Fallback estimate via bitrate and duration
 
-From the repository root:
+Displayed values are approximate and intended for decision support before download.
 
-1. Create virtual environment:
+### Error Handling Model
 
-	py -m venv .venv
+- URL validation checks for YouTube domains (`youtube.com`, `youtu.be`)
+- Failures in metadata fetch prompt `Retry or cancel? (r/c)`
+- Download failures also prompt retry/cancel
+- Invalid menu input is handled with repeated prompt until valid
 
-2. Activate on Windows PowerShell:
+### Download Output
 
-	.\.venv\Scripts\Activate.ps1
+- Default output directory is `Path.home() / "Downloads"`
+- Output template: `%(title)s.%(ext)s`
 
-3. Install dependencies:
+### Dev Workflow
 
-	py -m pip install -U pip
-	py -m pip install yt-dlp
+Install in editable mode (local development path):
 
-## Contributing
+```powershell
+python -m pip install -e .
+```
 
-Contributions are welcome.
+Run tests:
 
-Suggested contribution style:
+```powershell
+python -m unittest discover -s tests -p "test_*.py" -v
+```
 
-- Keep the CLI flow simple and predictable
-- Preserve interactive numbered selection behavior
-- Keep single-video reliability as top priority
+Reinstall pipx command after changes:
 
-## Disclaimer
+```powershell
+pipx install --force .
+```
 
-Use this project responsibly and respect YouTube Terms of Service and copyright laws in your region.
+## Known Limitations
+
+- Single-video focus only (no playlist support yet)
+- Size values are estimates, not exact final bytes
+- Some YouTube formats depend on external tools/runtime changes over time
+
+## Legal and Responsible Use
+
+Use Tubermate responsibly and in compliance with:
+
+- YouTube Terms of Service
+- Local copyright laws and content licensing rules
