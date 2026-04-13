@@ -138,7 +138,7 @@ def fetch_video_data(url: str) -> VideoData:
 
 
 def download_video(url: str, option: FormatOption, output_dir: str | None = None) -> None:
-    out_dir = Path(output_dir) if output_dir else Path.cwd()
+    out_dir = Path(output_dir) if output_dir else (Path.home() / "Downloads")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ydl_opts: dict[str, Any] = {
