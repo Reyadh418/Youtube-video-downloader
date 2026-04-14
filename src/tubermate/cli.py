@@ -56,6 +56,8 @@ def main() -> None:
     while True:
         try:
             print(f"Starting download: {selected.label}")
+            if "video only" in selected.label.lower():
+                print("Note: this selection is video-only and may not include audio.")
             if selected.requires_ffmpeg:
                 print("This selection requires ffmpeg to be installed and available in PATH.")
             download_video(url=url, option=selected)

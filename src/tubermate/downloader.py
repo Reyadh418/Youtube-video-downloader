@@ -117,41 +117,53 @@ def _video_options(formats: list[dict[str, Any]], duration: float | None) -> lis
     ffmpeg_available = _has_ffmpeg()
     options: list[FormatOption] = []
     target_resolutions = [1080, 720, 480, 360]
+    best_audio = _pick_best_audio_only(formats)
 
     for height in target_resolutions:
+        best_progressive = _pick_best_progressive(formats, height)
+        best_video_only = _pick_best_video_only(formats, height)
+
         if ffmpeg_available:
-            best_video = _pick_best_video_only(formats, height)
-            best_audio = _pick_best_audio_only(formats)
-            est_size = (_estimate_bytes(best_video, duration) if best_video else None)
-            audio_size = (_estimate_bytes(best_audio, duration) if best_audio else None)
-            if est_size and audio_size:
-                est_size += audio_size
-            elif audio_size and not est_size:
-                est_size = audio_size
-            size_text = _bytes_to_text(est_size)
-            suffix = f" | ~{size_text}" if size_text else ""
-            selector = (
-                f"bestvideo[height<={height}]+bestaudio"
+            merged_est = (_estimate_bytes(best_video_only, duration) if best_video_only else None)
+            audio_est = (_estimate_bytes(best_audio, duration) if best_audio else None)
+            if merged_est and audio_est:
+                merged_est += audio_est
+            elif audio_est and not merged_est:
+                merged_est = audio_est
+
+            merged_size_text = _bytes_to_text(merged_est)
+            merged_suffix = f" | ~{merged_size_text}" if merged_size_text else ""
+            merged_selector = (
+                f"bestvideo[height<={height}][vcodec!=none]+bestaudio"
                 f"/best[height<={height}][vcodec!=none][acodec!=none]"
             )
             options.append(
                 FormatOption(
-                    label=f"{height}p (or closest lower){suffix}",
-                    format_selector=selector,
+                    label=f"{height}p with audio (or closest lower){merged_suffix}",
+                    format_selector=merged_selector,
                     requires_ffmpeg=True,
                 )
             )
-            continue
+        else:
+            progressive_est = _estimate_bytes(best_progressive, duration) if best_progressive else None
+            progressive_size_text = _bytes_to_text(progressive_est)
+            progressive_suffix = f" | ~{progressive_size_text}" if progressive_size_text else ""
+            progressive_selector = f"best[height<={height}][vcodec!=none][acodec!=none]/best[height<={height}]"
+            options.append(
+                FormatOption(
+                    label=f"{height}p with audio (progressive, may be lower){progressive_suffix}",
+                    format_selector=progressive_selector,
+                )
+            )
 
-        best_progressive = _pick_best_progressive(formats, height)
-        est_size = _estimate_bytes(best_progressive, duration) if best_progressive else None
-        size_text = _bytes_to_text(est_size)
-        suffix = f" | ~{size_text}" if size_text else ""
-        selector = f"best[height<={height}][vcodec!=none][acodec!=none]/best[height<={height}]"
+        video_only_est = _estimate_bytes(best_video_only, duration) if best_video_only else None
+        video_only_size_text = _bytes_to_text(video_only_est)
+        video_only_suffix = f" | ~{video_only_size_text}" if video_only_size_text else ""
+        video_only_selector = f"bestvideo[height<={height}][vcodec!=none]/best[height<={height}]"
         options.append(
             FormatOption(
-                label=f"{height}p (or closest lower){suffix}",
-                format_selector=selector,
+                label=f"{height}p video only (or closest lower){video_only_suffix}",
+                format_selector=video_only_selector,
             )
         )
 
