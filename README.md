@@ -13,6 +13,21 @@ You run one command, paste a URL, choose a numbered quality option, and download
 - Retry/cancel prompts when link fetch or download fails
 - Default download folder: `C:\Users\(username)\Downloads` (on your machine)
 
+## Quick Start
+
+If you already have Git and Python installed, use this fast setup:
+
+```powershell
+git clone https://github.com/Reyadh418/Youtube-video-downloader.git
+cd Youtube-video-downloader
+python -m pip install --user pipx
+python -m pipx ensurepath
+pipx install .
+Tubermate
+```
+
+If you are new to this, do not worry. The complete beginner-friendly step-by-step guide is right below.
+
 ## Beginner Guide
 
 This section is for complete beginners on Windows PowerShell.
@@ -27,7 +42,25 @@ python --version
 ```
 
 If you see a version number (example `Python 3.13.x`), continue.
-If not, install Python from the Microsoft Store, then restart PowerShell.
+If not, install Python from the Microsoft Store or use this command:
+
+```powershell
+winget install -e --id Python.Python.3.13
+```
+
+Then restart PowerShell.
+
+Install Git so you can clone the repository:
+
+```powershell
+winget install -e --id Git.Git
+```
+
+Then restart PowerShell and verify Git:
+
+```powershell
+git --version
+```
 
 ### 2. Install pipx and set PATH (one-time)
 
@@ -67,10 +100,11 @@ Why this matters:
 
 ### 4. Install Tubermate
 
-In PowerShell, go to the Tubermate project folder:
+Clone the repository and enter the project folder:
 
 ```powershell
-cd "C:\Code\Youtube video downloader"
+git clone https://github.com/Reyadh418/Youtube-video-downloader.git
+cd Youtube-video-downloader
 ```
 
 Install Tubermate with pipx:
@@ -99,7 +133,7 @@ By default, files are saved to your Downloads folder.
 If you changed the source code and want the command to use the new version:
 
 ```powershell
-cd "C:\Code\Youtube video downloader"
+cd Youtube-video-downloader
 pipx install --force .
 ```
 
