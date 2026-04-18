@@ -157,19 +157,26 @@ If not found, reinstall ffmpeg and restart PowerShell.
 
 ## Option List Behavior
 
-Tubermate always shows a stable menu layout:
+Tubermate shows options in this order:
+
+A. With Audio Options
 
 1. 1080p with audio (progressive, may be lower without ffmpeg)
-2. 1080p video only (or closest lower)
-3. 720p with audio (progressive, may be lower without ffmpeg)
-4. 720p video only (or closest lower)
-5. 480p with audio (progressive, may be lower without ffmpeg)
-6. 480p video only (or closest lower)
-7. 360p with audio (progressive, may be lower without ffmpeg)
+2. 720p with audio (progressive, may be lower without ffmpeg)
+3. 480p with audio (progressive, may be lower without ffmpeg)
+4. 360p with audio (progressive, may be lower without ffmpeg)
+
+B. Without Audio Options
+
+5. 1080p video only (or closest lower)
+6. 720p video only (or closest lower)
+7. 480p video only (or closest lower)
 8. 360p video only (or closest lower)
-9. Best available
-10. Audio only (best original)
-11. Audio only (MP3 192kbps) (only when ffmpeg is available)
+
+C. Only Audio Options
+
+9. Audio only (best original)
+10. Audio only (MP3 192kbps) (shown only when ffmpeg is available)
 
 Notes:
 

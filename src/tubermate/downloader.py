@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from typing import Any
 from urllib.parse import urlparse
 from shutil import which
@@ -59,6 +60,58 @@ def _bytes_to_text(value: float | int | None) -> str:
         size /= 1024
         unit_idx += 1
     return f"{size:.1f}{units[unit_idx]}"
+
+
+def _seconds_to_eta(seconds: float | int | None) -> str:
+    if seconds is None:
+        return "--:--"
+    total_seconds = max(0, int(seconds))
+    minutes, secs = divmod(total_seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours > 0:
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def _make_progress_hook() -> Any:
+    state: dict[str, Any] = {
+        "last_line_len": 0,
+        "finished": False,
+    }
+
+    def _render_progress_line(data: dict[str, Any]) -> None:
+        status = data.get("status")
+
+        if status == "downloading":
+            downloaded = float(data.get("downloaded_bytes") or 0)
+            total = data.get("total_bytes") or data.get("total_bytes_estimate")
+            total_float = float(total) if total else 0.0
+            percent = (downloaded / total_float * 100.0) if total_float > 0 else 0.0
+            percent = min(100.0, max(0.0, percent))
+
+            bar_width = 20
+            filled = int((percent / 100.0) * bar_width)
+            bar = "#" * filled + "-" * (bar_width - filled)
+
+            progress_text = f"{_bytes_to_text(downloaded)}/{_bytes_to_text(total_float) if total_float > 0 else '?'}"
+            speed_text = _bytes_to_text(data.get("speed")) + "/s" if data.get("speed") else "--/s"
+            eta_text = _seconds_to_eta(data.get("eta"))
+
+            line = f"{percent:3.0f}%[{bar}] {progress_text} {speed_text} ETA {eta_text}"
+            pad_len = max(0, int(state["last_line_len"]) - len(line))
+            sys.stdout.write("\r" + line + (" " * pad_len))
+            sys.stdout.flush()
+            state["last_line_len"] = len(line)
+            return
+
+        if status == "finished" and not state["finished"]:
+            line = "100%[####################] Completed"
+            pad_len = max(0, int(state["last_line_len"]) - len(line))
+            sys.stdout.write("\r" + line + (" " * pad_len) + "\n")
+            sys.stdout.flush()
+            state["finished"] = True
+
+    return _render_progress_line
 
 
 def _estimate_bytes(fmt: dict[str, Any], duration: float | None) -> float | None:
@@ -148,10 +201,13 @@ def _video_options(formats: list[dict[str, Any]], duration: float | None) -> lis
             progressive_est = _estimate_bytes(best_progressive, duration) if best_progressive else None
             progressive_size_text = _bytes_to_text(progressive_est)
             progressive_suffix = f" | ~{progressive_size_text}" if progressive_size_text else ""
-            progressive_selector = f"best[height<={height}][vcodec!=none][acodec!=none]/best[height<={height}]"
+            progressive_selector = (
+                f"best[height<={height}][vcodec!=none][acodec!=none]"
+                f"/best[vcodec!=none][acodec!=none]"
+            )
             options.append(
                 FormatOption(
-                    label=f"{height}p with audio (progressive, may be lower){progressive_suffix}",
+                    label=f"{height}p with audio (progressive, may be lower without ffmpeg){progressive_suffix}",
                     format_selector=progressive_selector,
                 )
             )
@@ -176,7 +232,6 @@ def fetch_video_data(url: str) -> VideoData:
 
     ydl_opts: dict[str, Any] = {
         "quiet": True,
-        "no_warnings": True,
         "noplaylist": True,
     }
     with YoutubeDL(ydl_opts) as ydl:
@@ -185,22 +240,7 @@ def fetch_video_data(url: str) -> VideoData:
     formats = info.get("formats", [])
     duration = info.get("duration")
     options = _video_options(formats, duration)
-
-    best_progressive = _pick_best_progressive(formats, 10000)
-    best_video = _pick_best_video_only(formats, 10000)
     best_audio = _pick_best_audio_only(formats)
-    if _has_ffmpeg():
-        best_est = (_estimate_bytes(best_video, duration) if best_video else None)
-        best_audio_est = (_estimate_bytes(best_audio, duration) if best_audio else None)
-        if best_est and best_audio_est:
-            best_est += best_audio_est
-        elif best_audio_est and not best_est:
-            best_est = best_audio_est
-    else:
-        best_est = _estimate_bytes(best_progressive, duration) if best_progressive else None
-    best_size_text = _bytes_to_text(best_est)
-    best_suffix = f" | ~{best_size_text}" if best_size_text else ""
-    options.append(FormatOption(label=f"Best available{best_suffix}", format_selector="best"))
 
     audio_est = _estimate_bytes(best_audio, duration) if best_audio else None
     audio_size_text = _bytes_to_text(audio_est)
@@ -220,7 +260,7 @@ def fetch_video_data(url: str) -> VideoData:
         )
 
     if not options:
-        options = [FormatOption(label="Best available", format_selector="best")]
+        raise RuntimeError("No downloadable formats found for this video.")
 
     title = info.get("title") or "Unknown title"
     return VideoData(title=title, options=options)
@@ -234,6 +274,9 @@ def download_video(url: str, option: FormatOption, output_dir: str | None = None
         "format": option.format_selector,
         "noplaylist": True,
         "outtmpl": str(out_dir / "%(title)s.%(ext)s"),
+        "quiet": True,
+        "noprogress": True,
+        "progress_hooks": [_make_progress_hook()],
     }
     if option.extract_audio:
         ydl_opts["postprocessors"] = [
