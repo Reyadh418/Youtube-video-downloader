@@ -108,13 +108,18 @@ def main() -> None:
                     print("Cancelled.")
                     return
 
-        print(f"Found {len(entries)} entries. Fetching options from first video...")
-        # Build options from first entry
-        first = entries[0]
-        try:
-            video_data = fetch_video_data(first.url)
-        except Exception as exc:
-            print(f"Could not fetch formats from first playlist item: {exc}")
+        print(f"Found {len(entries)} entries. Fetching options from the first playable video...")
+        video_data = None
+        for entry in entries:
+            try:
+                video_data = fetch_video_data(entry.url)
+                print(f"Using options from: {entry.title}")
+                break
+            except Exception:
+                continue
+
+        if video_data is None:
+            print("Could not fetch formats from any playlist item.")
             return
 
     options = video_data.options
