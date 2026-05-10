@@ -1,15 +1,19 @@
 # Tubermate
 
-Tubermate is a terminal app that downloads a single YouTube video from a link.
-You run one command, paste a URL, choose a numbered quality option, and download.
+Current release: v1.1.0
+
+Tubermate is a terminal app for downloading YouTube videos and playlists.
+You run one command, choose single video or playlist, paste a link, select a numbered quality option, and download.
 
 ## What It Does
 
 - Interactive command-line flow, no GUI
+- Choose between single video and playlist at startup
 - Numbered quality options: 1080p, 720p, 480p, 360p
 - Each quality includes with-audio and video-only choices
 - Audio download options
 - Estimated size shown in the selection menu
+- Playlist downloads run one video at a time with a final summary
 - Retry/cancel prompts when link fetch or download fails
 - Default download folder: `C:\Users\(username)\Downloads` (on your machine)
 
@@ -122,9 +126,12 @@ Tubermate
 ### 5. Use Tubermate
 
 1. Run `Tubermate`
-2. Paste a YouTube video URL
-3. Choose a number from the menu
-4. Wait for download to finish
+2. Choose `s` for a single video or `p` for a playlist
+3. Paste the YouTube link
+4. Choose a number from the menu
+5. Wait for download to finish
+
+For playlists, Tubermate downloads each video one by one and shows a clean per-item status plus a final summary.
 
 By default, files are saved to your Downloads folder.
 
@@ -135,6 +142,12 @@ If you changed the source code and want the command to use the new version:
 ```powershell
 cd Youtube-video-downloader
 pipx install --force .
+```
+
+If you installed Tubermate with pipx and just want the latest published release:
+
+```powershell
+pipx upgrade tubermate
 ```
 
 ### 7. Quick troubleshooting
