@@ -55,6 +55,9 @@ def fetch_playlist_entries(url: str) -> list[PlaylistEntry]:
 
     ydl_opts: dict[str, Any] = {
         "quiet": True,
+        "skip_download": True,
+        "extract_flat": "in_playlist",
+        "ignoreerrors": True,
     }
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)

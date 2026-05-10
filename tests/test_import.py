@@ -8,6 +8,7 @@ from tubermate.cli import _download_playlist
 from tubermate.cli import _split_options
 from tubermate.cli import _ask_retry_or_cancel
 from tubermate.cli import _read_choice
+from tubermate.downloader import fetch_playlist_entries
 from tubermate.downloader import PlaylistEntry
 from tubermate.downloader import fetch_first_playable_video_data
 from tubermate.cli import main
@@ -87,6 +88,28 @@ class CliTests(unittest.TestCase):
         self.assertEqual(summary.succeeded, 1)
         self.assertEqual(summary.skipped, 1)
         self.assertEqual([result.status for result in summary.results], ["skipped", "succeeded"])
+
+    def test_fetch_playlist_entries_uses_flat_playlist_metadata(self) -> None:
+        playlist_info = {
+            "entries": [
+                {"title": "Video A", "url": "abc123", "id": "abc123", "duration": 12},
+                {"title": "Video B", "webpage_url": "https://www.youtube.com/watch?v=def456", "duration": 34},
+            ]
+        }
+
+        mock_ydl = unittest.mock.MagicMock()
+        mock_ydl.extract_info.return_value = playlist_info
+        mock_context = unittest.mock.MagicMock()
+        mock_context.__enter__.return_value = mock_ydl
+        mock_context.__exit__.return_value = False
+
+        with patch("tubermate.downloader.YoutubeDL", return_value=mock_context):
+            entries = fetch_playlist_entries("https://www.youtube.com/playlist?list=PL123")
+
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(entries[0].url, "abc123")
+        self.assertEqual(entries[0].title, "Video A")
+        self.assertEqual(entries[1].url, "https://www.youtube.com/watch?v=def456")
 
 
 if __name__ == "__main__":
