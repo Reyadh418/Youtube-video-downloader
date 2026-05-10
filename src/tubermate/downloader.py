@@ -25,6 +25,44 @@ class VideoData:
     options: list[FormatOption]
 
 
+@dataclass
+class PlaylistEntry:
+    url: str
+    title: str
+    duration: float | None
+
+
+def fetch_playlist_entries(url: str) -> list[PlaylistEntry]:
+    if not _is_youtube_url(url):
+        raise InvalidYoutubeUrlError("Please enter a valid YouTube playlist URL.")
+
+    ydl_opts: dict[str, Any] = {
+        "quiet": True,
+    }
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    entries = info.get("entries") or []
+    results: list[PlaylistEntry] = []
+    for entry in entries:
+        if not entry:
+            continue
+        # prefer a full webpage_url if available
+        entry_url = entry.get("webpage_url") or entry.get("url")
+        if not entry_url and entry.get("id"):
+            entry_url = f"https://www.youtube.com/watch?v={entry.get('id')}"
+        title = entry.get("title") or "Unknown title"
+        duration = entry.get("duration")
+        if entry_url:
+            results.append(PlaylistEntry(url=entry_url, title=title, duration=duration))
+
+    if not results:
+        raise RuntimeError("No entries found in the provided playlist.")
+
+    return results
+
+
+
 class InvalidYoutubeUrlError(ValueError):
     pass
 
