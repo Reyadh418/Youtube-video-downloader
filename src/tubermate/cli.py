@@ -53,20 +53,22 @@ def _download_playlist(entries: list[PlaylistEntry], selected: FormatOption) -> 
     failed = 0
     skipped = 0
 
+    if "video only" in selected.label.lower():
+        print("Note: this selection is video-only and may not include audio.")
+    if selected.requires_ffmpeg:
+        print("This selection requires ffmpeg to be installed and available in PATH.")
+    print()
+
     for idx, entry in enumerate(entries, start=1):
-        print()
-        print(f"Downloading {idx}/{total}: {entry.title}")
-        if "video only" in selected.label.lower():
-            print("Note: this selection is video-only and may not include audio.")
-        if selected.requires_ffmpeg:
-            print("This selection requires ffmpeg to be installed and available in PATH.")
+        print("=" * 70)
+        print(f"[{idx}/{total}] {entry.title}")
+        print("=" * 70)
 
         while True:
             try:
-                print("Preparing download...")
+                print("Downloading...")
                 download_video(url=entry.url, option=selected)
-                print()
-                print(f"Completed {idx}/{total}: {entry.title}")
+                print(f"✓ Completed")
                 succeeded += 1
                 results.append(PlaylistDownloadResult(title=entry.title, url=entry.url, status="succeeded"))
                 break
@@ -77,8 +79,9 @@ def _download_playlist(entries: list[PlaylistEntry], selected: FormatOption) -> 
                     continue
                 skipped += 1
                 results.append(PlaylistDownloadResult(title=entry.title, url=entry.url, status="skipped", error=str(exc)))
-                print("Skipping current item.")
+                print("✗ Skipped")
                 break
+        print()
 
     return PlaylistDownloadSummary(total=total, succeeded=succeeded, failed=failed, skipped=skipped, results=results)
 
