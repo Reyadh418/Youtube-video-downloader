@@ -32,6 +32,23 @@ class PlaylistEntry:
     duration: float | None
 
 
+@dataclass
+class PlaylistDownloadResult:
+    title: str
+    url: str
+    status: str
+    error: str | None = None
+
+
+@dataclass
+class PlaylistDownloadSummary:
+    total: int
+    succeeded: int
+    failed: int
+    skipped: int
+    results: list[PlaylistDownloadResult]
+
+
 def fetch_playlist_entries(url: str) -> list[PlaylistEntry]:
     if not _is_youtube_url(url):
         raise InvalidYoutubeUrlError("Please enter a valid YouTube playlist URL.")
@@ -42,12 +59,14 @@ def fetch_playlist_entries(url: str) -> list[PlaylistEntry]:
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
 
+    if not info:
+        raise RuntimeError("Could not read playlist data.")
+
     entries = info.get("entries") or []
     results: list[PlaylistEntry] = []
     for entry in entries:
         if not entry:
             continue
-        # prefer a full webpage_url if available
         entry_url = entry.get("webpage_url") or entry.get("url")
         if not entry_url and entry.get("id"):
             entry_url = f"https://www.youtube.com/watch?v={entry.get('id')}"
@@ -60,6 +79,20 @@ def fetch_playlist_entries(url: str) -> list[PlaylistEntry]:
         raise RuntimeError("No entries found in the provided playlist.")
 
     return results
+
+
+def fetch_first_playable_video_data(entries: list[PlaylistEntry]) -> tuple[VideoData, PlaylistEntry]:
+    last_error: Exception | None = None
+    for entry in entries:
+        try:
+            return fetch_video_data(entry.url), entry
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    if last_error is None:
+        raise RuntimeError("No playlist entries were available.")
+    raise RuntimeError("Could not fetch formats from any playlist item.") from last_error
 
 
 

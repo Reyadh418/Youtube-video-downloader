@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from tubermate.downloader import FormatOption
-from tubermate.downloader import download_video, fetch_video_data, fetch_playlist_entries
+from tubermate.downloader import FormatOption, PlaylistDownloadResult, PlaylistDownloadSummary, PlaylistEntry
+from tubermate.downloader import download_video, fetch_first_playable_video_data, fetch_video_data, fetch_playlist_entries
 
 
 def _ask_retry_or_cancel() -> bool:
@@ -44,6 +44,43 @@ def _split_options(options: list[FormatOption]) -> tuple[list[FormatOption], lis
     without_audio = [option for option in options if _is_without_audio(option)]
     only_audio = [option for option in options if _is_only_audio(option)]
     return with_audio, without_audio, only_audio
+
+
+def _download_playlist(entries: list[PlaylistEntry], selected: FormatOption) -> PlaylistDownloadSummary:
+    total = len(entries)
+    results: list[PlaylistDownloadResult] = []
+    succeeded = 0
+    failed = 0
+    skipped = 0
+
+    for idx, entry in enumerate(entries, start=1):
+        print()
+        print(f"Downloading {idx}/{total}: {entry.title}")
+        if "video only" in selected.label.lower():
+            print("Note: this selection is video-only and may not include audio.")
+        if selected.requires_ffmpeg:
+            print("This selection requires ffmpeg to be installed and available in PATH.")
+
+        while True:
+            try:
+                print("Preparing download...")
+                download_video(url=entry.url, option=selected)
+                print()
+                print(f"Completed {idx}/{total}: {entry.title}")
+                succeeded += 1
+                results.append(PlaylistDownloadResult(title=entry.title, url=entry.url, status="succeeded"))
+                break
+            except Exception as exc:
+                print(f"Download failed for {entry.title}: {exc}")
+                if _ask_retry_or_cancel():
+                    print("Retrying...")
+                    continue
+                skipped += 1
+                results.append(PlaylistDownloadResult(title=entry.title, url=entry.url, status="skipped", error=str(exc)))
+                print("Skipping current item.")
+                break
+
+    return PlaylistDownloadSummary(total=total, succeeded=succeeded, failed=failed, skipped=skipped, results=results)
 
 
 def main() -> None:
@@ -109,18 +146,12 @@ def main() -> None:
                     return
 
         print(f"Found {len(entries)} entries. Fetching options from the first playable video...")
-        video_data = None
-        for entry in entries:
-            try:
-                video_data = fetch_video_data(entry.url)
-                print(f"Using options from: {entry.title}")
-                break
-            except Exception:
-                continue
-
-        if video_data is None:
-            print("Could not fetch formats from any playlist item.")
+        try:
+            video_data, playable_entry = fetch_first_playable_video_data(entries)
+        except Exception as exc:
+            print(str(exc))
             return
+        print(f"Using options from: {playable_entry.title}")
 
     options = video_data.options
     print(f"Title: {video_data.title}")
@@ -177,32 +208,13 @@ def main() -> None:
                     return
     else:
         # playlist: download each entry sequentially using selected option
-        total = len(entries)
-        for idx, entry in enumerate(entries, start=1):
-            print()
-            print(f"Downloading {idx}/{total}: {entry.title}")
-            if "video only" in selected.label.lower():
-                print("Note: this selection is video-only and may not include audio.")
-            if selected.requires_ffmpeg:
-                print("This selection requires ffmpeg to be installed and available in PATH.")
-
-            while True:
-                try:
-                    print("Preparing download...")
-                    download_video(url=entry.url, option=selected)
-                    print()
-                    print(f"Completed {idx}/{total}: {entry.title}")
-                    break
-                except Exception as exc:
-                    print(f"Download failed for {entry.title}: {exc}")
-                    if _ask_retry_or_cancel():
-                        print("Retrying...")
-                        continue
-                    else:
-                        print("Cancelled playlist download.")
-                        return
+        summary = _download_playlist(entries, selected)
         print()
         print("Playlist download complete.")
+        print(f"Summary: {summary.succeeded}/{summary.total} succeeded, {summary.failed} failed, {summary.skipped} skipped.")
+        skipped_titles = [result.title for result in summary.results if result.status == "skipped"]
+        if skipped_titles:
+            print("Skipped items: " + ", ".join(skipped_titles))
 
 
 if __name__ == "__main__":

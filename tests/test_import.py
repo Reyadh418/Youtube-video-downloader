@@ -4,9 +4,12 @@ from unittest.mock import patch
 from tubermate.cli import _is_only_audio
 from tubermate.cli import _is_without_audio
 from tubermate.cli import _is_with_audio
+from tubermate.cli import _download_playlist
 from tubermate.cli import _split_options
 from tubermate.cli import _ask_retry_or_cancel
 from tubermate.cli import _read_choice
+from tubermate.downloader import PlaylistEntry
+from tubermate.downloader import fetch_first_playable_video_data
 from tubermate.cli import main
 from tubermate.downloader import FormatOption
 
@@ -54,6 +57,36 @@ class CliTests(unittest.TestCase):
         self.assertEqual([option.label for option in with_audio], ["1080p with audio (or closest lower)"])
         self.assertEqual([option.label for option in without_audio], ["720p video only (or closest lower)"])
         self.assertEqual([option.label for option in only_audio], ["Audio only (best original)"])
+
+    def test_fetch_first_playable_video_data_skips_unplayable_entries(self) -> None:
+        entries = [
+            PlaylistEntry(url="https://www.youtube.com/watch?v=bad", title="Bad", duration=None),
+            PlaylistEntry(url="https://www.youtube.com/watch?v=good", title="Good", duration=None),
+        ]
+
+        playable = object()
+
+        with patch("tubermate.downloader.fetch_video_data", side_effect=[Exception("boom"), playable]):
+            video_data, entry = fetch_first_playable_video_data(entries)
+
+        self.assertIs(video_data, playable)
+        self.assertEqual(entry.title, "Good")
+
+    def test_download_playlist_continues_after_failure(self) -> None:
+        entries = [
+            PlaylistEntry(url="https://www.youtube.com/watch?v=1", title="One", duration=None),
+            PlaylistEntry(url="https://www.youtube.com/watch?v=2", title="Two", duration=None),
+        ]
+        selected = FormatOption(label="720p with audio (or closest lower)", format_selector="best")
+
+        with patch("tubermate.cli.download_video", side_effect=[Exception("boom"), None]):
+            with patch("tubermate.cli._ask_retry_or_cancel", return_value=False):
+                summary = _download_playlist(entries, selected)
+
+        self.assertEqual(summary.total, 2)
+        self.assertEqual(summary.succeeded, 1)
+        self.assertEqual(summary.skipped, 1)
+        self.assertEqual([result.status for result in summary.results], ["skipped", "succeeded"])
 
 
 if __name__ == "__main__":
